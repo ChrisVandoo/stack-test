@@ -1,0 +1,15 @@
+name: Debug Push
+
+on: push
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print run attempt
+        run: echo "Run attempt: ${{ github.run_attempt }}"
+
+      - name: Print event object
+        env:
+          EVENT: ${{ toJSON(github.event) }}
+        run: echo "$EVENT"
