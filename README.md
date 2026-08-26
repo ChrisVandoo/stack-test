@@ -4,7 +4,7 @@ Testing Github Stacks
 ## Blob game
 
 Move a blob around the screen and collect pellets, steering around the `▓`
-walls scattered across the field. Five `*` pellets sit on the board at any one
+walls scattered across the field. Ten `*` pellets sit on the board at any one
 time — eat one and another appears somewhere you can reach.
 
 ```

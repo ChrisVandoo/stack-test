@@ -4,7 +4,7 @@ const BLOB = "●";
 const PELLET = "*";
 const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
-const PELLET_COUNT = 5;
+const PELLET_COUNT = 10;
 
 function createState(width, height) {
   return {
