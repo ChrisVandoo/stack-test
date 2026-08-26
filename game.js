@@ -4,6 +4,8 @@ const BLOB = "●";
 const PELLET = "*";
 const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
+const BOULDER = "O";
+const BOULDER_COUNT = 6;
 const PELLET_COUNT = 10;
 const MOVES_PER_GAME = 30;
 const MAX_NAME = 12;
@@ -26,6 +28,7 @@ function createState(width, height) {
     score: 0,
     pellets: [],
     obstacles: [],
+    boulders: [],
     movesLeft: MOVES_PER_GAME,
     nameInput: "",
     name: DEFAULT_NAME,
@@ -53,6 +56,28 @@ function placeObstacles(state) {
   }
 }
 
+function isBoulder(state, x, y) {
+  return state.boulders.some((b) => b.x === x && b.y === y);
+}
+
+function placeBoulders(state) {
+  state.boulders = [];
+
+  // Only on squares the blob could already walk to, and never right beside it,
+  // so a round never opens with a boulder shoved against the blob's nose.
+  const open = reachableSquares(state).filter((key) => {
+    const x = key % state.width;
+    const y = Math.floor(key / state.width);
+    return Math.abs(x - state.x) > 1 || Math.abs(y - state.y) > 1;
+  });
+
+  while (state.boulders.length < BOULDER_COUNT && open.length > 0) {
+    const i = Math.floor(Math.random() * open.length);
+    const key = open.splice(i, 1)[0];
+    state.boulders.push({ x: key % state.width, y: Math.floor(key / state.width) });
+  }
+}
+
 // Squares the blob can actually walk to from where it stands, so a pellet
 // never spawns inside a pocket the obstacles have sealed off.
 function reachableSquares(state) {
@@ -66,7 +91,7 @@ function reachableSquares(state) {
       const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= state.width || ny >= state.height) continue;
       const key = ny * state.width + nx;
-      if (seen.has(key) || isObstacle(state, nx, ny)) continue;
+      if (seen.has(key) || isObstacle(state, nx, ny) || isBoulder(state, nx, ny)) continue;
       seen.add(key);
       queue.push([nx, ny]);
     }
@@ -94,6 +119,15 @@ function placePellets(state) {
   }
 }
 
+function rehomeStrandedPellets(state) {
+  const open = new Set(reachableSquares(state));
+  const stranded = state.pellets.filter((p) => !open.has(p.y * state.width + p.x));
+  if (stranded.length === 0) return;
+
+  state.pellets = state.pellets.filter((p) => open.has(p.y * state.width + p.x));
+  placePellets(state);
+}
+
 function move(state, dx, dy) {
   const nextX = Math.min(state.width - 1, Math.max(0, state.x + dx));
   const nextY = Math.min(state.height - 1, Math.max(0, state.y + dy));
@@ -102,8 +136,34 @@ function move(state, dx, dy) {
   // wasted step doesn't come out of the move budget.
   if (isObstacle(state, nextX, nextY)) return;
 
+  // Boulders give way instead, but only when the square behind them is clear.
+  // A boulder with its back to a wall is as good as one, and shoving costs the
+  // same single move that walking does.
+  const boulder = state.boulders.find((b) => b.x === nextX && b.y === nextY);
+  if (boulder) {
+    const overX = nextX + dx;
+    const overY = nextY + dy;
+    const blocked =
+      overX < 0 ||
+      overY < 0 ||
+      overX >= state.width ||
+      overY >= state.height ||
+      isObstacle(state, overX, overY) ||
+      isBoulder(state, overX, overY) ||
+      isPellet(state, overX, overY);
+
+    if (blocked) return;
+
+    boulder.x = overX;
+    boulder.y = overY;
+  }
+
   state.x = nextX;
   state.y = nextY;
+
+  // A shoved boulder can seal a corridor, so any pellet it cut off is re-homed
+  // rather than left stranded for the rest of the round.
+  if (boulder) rehomeStrandedPellets(state);
 
   const eaten = state.pellets.findIndex((p) => p.x === state.x && p.y === state.y);
   if (eaten !== -1) {
@@ -172,6 +232,12 @@ function renderTitle(state) {
     ...art.map((line) => center(line, width)),
     "",
     center(narrow ? "eat the " + PELLET : "collect the " + PELLET + " pellets", width),
+    center(
+      narrow
+        ? `${OBSTACLE} blocks ${BOULDER} shoves`
+        : `${OBSTACLE} walls block you, ${BOULDER} boulders shove`,
+      width
+    ),
     "",
     center(narrow ? "name:" : "name your blob:", width),
     center("[" + field + "]", width),
@@ -195,13 +261,15 @@ function renderGame(state) {
       if (x === state.x && y === state.y) row += BLOB;
       else if (isPellet(state, x, y)) row += PELLET;
       else if (isObstacle(state, x, y)) row += OBSTACLE;
+      else if (isBoulder(state, x, y)) row += BOULDER;
       else row += " ";
     }
     lines.push(row);
   }
   return frame(lines, state.width).join("\n") +
     `\n${state.name}  Score: ${state.score}   Moves: ${state.movesLeft}   ` +
-    `Pellets: ${state.pellets.length}   Avoid the ${OBSTACLE} walls`;
+    `Pellets: ${state.pellets.length}   ` +
+    `${OBSTACLE} blocks, ${BOULDER} shoves`;
 }
 
 function renderGameOver(state) {
@@ -250,6 +318,7 @@ function startGame(state) {
   state.y = Math.floor(state.height / 2);
   state.pellets = [];
   placeObstacles(state);
+  placeBoulders(state);
   placePellets(state);
 }
 
@@ -329,6 +398,8 @@ module.exports = {
   typeName,
   blobName,
   placeObstacles,
+  placeBoulders,
+  isBoulder,
   placePellets,
   isPellet,
   isObstacle,

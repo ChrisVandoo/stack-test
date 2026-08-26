@@ -3,9 +3,17 @@ Testing Github Stacks
 
 ## Blob game
 
-Move a blob around the screen and collect pellets, steering around the `▓`
-walls scattered across the field. Ten `*` pellets sit on the board at any one
-time — eat one and another appears somewhere you can reach.
+Move a blob around the screen and collect pellets, working around two kinds of
+obstacle. Ten `*` pellets sit on the board at any one time — eat one and
+another appears somewhere you can reach.
+
+| Obstacle     | Behaviour                                                      |
+| ------------ | -------------------------------------------------------------- |
+| `▓` wall     | Solid. Bumping into one leaves you put, and costs no move.      |
+| `O` boulder  | Shoves one square if the space behind it is clear, otherwise it acts like a wall. A successful shove costs the same single move as a step. |
+
+Pushing a boulder can seal off part of the field. Any pellet cut off that way
+is moved somewhere you can still reach, so a round never strands one.
 
 ```
 npm start      # or: npm run game
