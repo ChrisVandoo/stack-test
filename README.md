@@ -4,7 +4,8 @@ Testing Github Stacks
 ## Blob game
 
 Move a blob around the screen and collect pellets, steering around the `▓`
-walls scattered across the field.
+walls scattered across the field. Five `*` pellets sit on the board at any one
+time — eat one and another appears somewhere you can reach.
 
 ```
 npm start      # or: npm run game

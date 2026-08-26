@@ -4,6 +4,7 @@ const BLOB = "●";
 const PELLET = "*";
 const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
+const PELLET_COUNT = 5;
 
 function createState(width, height) {
   return {
@@ -12,7 +13,7 @@ function createState(width, height) {
     x: Math.floor(width / 2),
     y: Math.floor(height / 2),
     score: 0,
-    pellet: null,
+    pellets: [],
     obstacles: [],
   };
 }
@@ -60,15 +61,22 @@ function reachableSquares(state) {
   return [...seen];
 }
 
-function placePellet(state) {
-  const open = reachableSquares(state);
-  if (open.length === 0) {
-    state.pellet = null;
-    return;
-  }
+function isPellet(state, x, y) {
+  return state.pellets.some((p) => p.x === x && p.y === y);
+}
 
-  const key = open[Math.floor(Math.random() * open.length)];
-  state.pellet = { x: key % state.width, y: Math.floor(key / state.width) };
+// Tops the board back up to PELLET_COUNT, skipping squares that are already
+// taken. Fewer are placed only when the reachable area is genuinely smaller.
+function placePellets(state) {
+  const open = reachableSquares(state).filter(
+    (key) => !isPellet(state, key % state.width, Math.floor(key / state.width))
+  );
+
+  while (state.pellets.length < PELLET_COUNT && open.length > 0) {
+    const i = Math.floor(Math.random() * open.length);
+    const key = open.splice(i, 1)[0];
+    state.pellets.push({ x: key % state.width, y: Math.floor(key / state.width) });
+  }
 }
 
 function move(state, dx, dy) {
@@ -81,9 +89,11 @@ function move(state, dx, dy) {
   state.x = nextX;
   state.y = nextY;
 
-  if (state.pellet && state.x === state.pellet.x && state.y === state.pellet.y) {
+  const eaten = state.pellets.findIndex((p) => p.x === state.x && p.y === state.y);
+  if (eaten !== -1) {
+    state.pellets.splice(eaten, 1);
     state.score += 1;
-    placePellet(state);
+    placePellets(state);
   }
 }
 
@@ -94,14 +104,17 @@ function render(state) {
     let row = "";
     for (let x = 0; x < state.width; x++) {
       if (x === state.x && y === state.y) row += BLOB;
-      else if (state.pellet && x === state.pellet.x && y === state.pellet.y) row += PELLET;
+      else if (isPellet(state, x, y)) row += PELLET;
       else if (isObstacle(state, x, y)) row += OBSTACLE;
       else row += " ";
     }
     rows.push("│" + row + "│");
   }
   rows.push("└" + "─".repeat(state.width) + "┘");
-  rows.push(`Score: ${state.score}   Avoid the ${OBSTACLE} walls - q to quit`);
+  rows.push(
+    `Score: ${state.score}   Pellets: ${state.pellets.length}   ` +
+      `Avoid the ${OBSTACLE} walls - q to quit`
+  );
   return rows.join("\n");
 }
 
@@ -114,7 +127,7 @@ function start() {
   const height = Math.max(5, Math.min(20, (process.stdout.rows || 24) - 4));
   const state = createState(width, height);
   placeObstacles(state);
-  placePellet(state);
+  placePellets(state);
 
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
@@ -151,7 +164,8 @@ module.exports = {
   move,
   render,
   placeObstacles,
-  placePellet,
+  placePellets,
+  isPellet,
   isObstacle,
   reachableSquares,
 };
