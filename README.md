@@ -11,9 +11,11 @@ time — eat one and another appears somewhere you can reach.
 npm start      # or: npm run game
 ```
 
-Opens on a title screen — press `SPACE` (or `Enter`) to start.
+Opens on a title screen — press `SPACE` (or `Enter`) to start. You get 30
+moves to collect as many pellets as you can; when they run out, the game-over
+screen shows your score and offers a restart with `r`.
 
-Controls: arrow keys or WASD to move, `q` to quit.
+Controls: arrow keys or WASD to move, `r` to play again, `q` to quit.
 
 ## Hello world
 

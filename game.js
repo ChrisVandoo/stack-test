@@ -5,6 +5,7 @@ const PELLET = "*";
 const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
 const PELLET_COUNT = 10;
+const MOVES_PER_GAME = 30;
 
 const TITLE_ART = [
   "██████  ██       ██████  ██████ ",
@@ -23,6 +24,7 @@ function createState(width, height) {
     score: 0,
     pellets: [],
     obstacles: [],
+    movesLeft: MOVES_PER_GAME,
     screen: "title",
   };
 }
@@ -92,7 +94,8 @@ function move(state, dx, dy) {
   const nextX = Math.min(state.width - 1, Math.max(0, state.x + dx));
   const nextY = Math.min(state.height - 1, Math.max(0, state.y + dy));
 
-  // Obstacles are solid: bump into one and the blob stays put.
+  // Obstacles are solid: bump into one and the blob stays put, and the
+  // wasted step doesn't come out of the move budget.
   if (isObstacle(state, nextX, nextY)) return;
 
   state.x = nextX;
@@ -103,6 +106,12 @@ function move(state, dx, dy) {
     state.pellets.splice(eaten, 1);
     state.score += 1;
     placePellets(state);
+  }
+
+  state.movesLeft -= 1;
+  if (state.movesLeft <= 0) {
+    state.movesLeft = 0;
+    state.screen = "gameover";
   }
 }
 
@@ -157,17 +166,42 @@ function renderGame(state) {
     lines.push(row);
   }
   return frame(lines, state.width).join("\n") +
-    `\nScore: ${state.score}   Pellets: ${state.pellets.length}   ` +
-    `Avoid the ${OBSTACLE} walls - q to quit`;
+    `\nScore: ${state.score}   Moves: ${state.movesLeft}   ` +
+    `Pellets: ${state.pellets.length}   Avoid the ${OBSTACLE} walls`;
+}
+
+function renderGameOver(state) {
+  const { width, height } = state;
+  const narrow = width < 24;
+  const pellets = state.score === 1 ? "pellet" : "pellets";
+  const body = [
+    center("GAME OVER", width),
+    "",
+    center(narrow ? `${state.score} ${PELLET}` : `you collected ${state.score} ${pellets}`, width),
+    "",
+    ...(narrow
+      ? [center("r again", width), center("q quit", width)]
+      : [center("r  play again", width), center("q  quit", width)]),
+  ];
+
+  const blank = Math.max(0, Math.floor((height - body.length) / 2));
+  const lines = [...Array(blank).fill(""), ...body];
+  while (lines.length < height) lines.push("");
+
+  return frame(lines.slice(0, height), width).join("\n") +
+    "\n" + center(`final score: ${state.score}`, width + 2);
 }
 
 function render(state) {
-  return state.screen === "title" ? renderTitle(state) : renderGame(state);
+  if (state.screen === "title") return renderTitle(state);
+  if (state.screen === "gameover") return renderGameOver(state);
+  return renderGame(state);
 }
 
 function startGame(state) {
   state.screen = "playing";
   state.score = 0;
+  state.movesLeft = MOVES_PER_GAME;
   state.x = Math.floor(state.width / 2);
   state.y = Math.floor(state.height / 2);
   state.pellets = [];
@@ -189,7 +223,7 @@ function start() {
 
   const quit = () => {
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
-    const tail = state.screen === "playing" ? `\nFinal score: ${state.score}\n` : "\n";
+    const tail = state.screen === "title" ? "\n" : `\nFinal score: ${state.score}\n`;
     process.stdout.write(tail);
     process.exit(0);
   };
@@ -197,8 +231,11 @@ function start() {
   process.stdin.on("keypress", (str, key) => {
     if (key.name === "q" || (key.ctrl && key.name === "c")) return quit();
 
-    if (state.screen === "title") {
-      if (key.name === "space" || key.name === "return") {
+    if (state.screen === "title" || state.screen === "gameover") {
+      const go = state.screen === "title"
+        ? key.name === "space" || key.name === "return"
+        : key.name === "r";
+      if (go) {
         startGame(state);
         draw(state);
       }
@@ -229,10 +266,12 @@ module.exports = {
   render,
   renderTitle,
   renderGame,
+  renderGameOver,
   startGame,
   placeObstacles,
   placePellets,
   isPellet,
   isObstacle,
   reachableSquares,
+  MOVES_PER_GAME,
 };
