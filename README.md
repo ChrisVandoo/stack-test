@@ -11,6 +11,8 @@ time — eat one and another appears somewhere you can reach.
 npm start      # or: npm run game
 ```
 
+Opens on a title screen — press `SPACE` (or `Enter`) to start.
+
 Controls: arrow keys or WASD to move, `q` to quit.
 
 ## Hello world

@@ -6,6 +6,14 @@ const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
 const PELLET_COUNT = 10;
 
+const TITLE_ART = [
+  "██████  ██       ██████  ██████ ",
+  "██   ██ ██      ██    ██ ██   ██",
+  "██████  ██      ██    ██ ██████ ",
+  "██   ██ ██      ██    ██ ██   ██",
+  "██████  ███████  ██████  ██████ ",
+];
+
 function createState(width, height) {
   return {
     width,
@@ -15,6 +23,7 @@ function createState(width, height) {
     score: 0,
     pellets: [],
     obstacles: [],
+    screen: "title",
   };
 }
 
@@ -97,9 +106,46 @@ function move(state, dx, dy) {
   }
 }
 
-function render(state) {
-  const rows = [];
-  rows.push("┌" + "─".repeat(state.width) + "┐");
+function center(line, width) {
+  const pad = Math.max(0, Math.floor((width - [...line].length) / 2));
+  return " ".repeat(pad) + line;
+}
+
+function frame(lines, width) {
+  const rows = ["┌" + "─".repeat(width) + "┐"];
+  for (const line of lines) {
+    const visible = [...line].slice(0, width).join("");
+    rows.push("│" + visible + " ".repeat(width - [...visible].length) + "│");
+  }
+  rows.push("└" + "─".repeat(width) + "┘");
+  return rows;
+}
+
+function renderTitle(state) {
+  const { width, height } = state;
+  const narrow = width < 24;
+  const art = TITLE_ART[0].length <= width ? TITLE_ART : ["B L O B"];
+  const hints = narrow
+    ? ["wasd move", "q quit"]
+    : ["arrows / wasd  move", "q              quit"];
+  const body = [
+    ...art.map((line) => center(line, width)),
+    "",
+    center(narrow ? "eat the " + PELLET : "collect the " + PELLET + " pellets", width),
+    "",
+    ...hints.map((line) => center(line, width)),
+  ];
+
+  const blank = Math.max(0, Math.floor((height - body.length) / 2));
+  const lines = [...Array(blank).fill(""), ...body];
+  while (lines.length < height) lines.push("");
+
+  return frame(lines.slice(0, height), width).join("\n") +
+    "\n" + center("press SPACE to start", width + 2);
+}
+
+function renderGame(state) {
+  const lines = [];
   for (let y = 0; y < state.height; y++) {
     let row = "";
     for (let x = 0; x < state.width; x++) {
@@ -108,14 +154,25 @@ function render(state) {
       else if (isObstacle(state, x, y)) row += OBSTACLE;
       else row += " ";
     }
-    rows.push("│" + row + "│");
+    lines.push(row);
   }
-  rows.push("└" + "─".repeat(state.width) + "┘");
-  rows.push(
-    `Score: ${state.score}   Pellets: ${state.pellets.length}   ` +
-      `Avoid the ${OBSTACLE} walls - q to quit`
-  );
-  return rows.join("\n");
+  return frame(lines, state.width).join("\n") +
+    `\nScore: ${state.score}   Pellets: ${state.pellets.length}   ` +
+    `Avoid the ${OBSTACLE} walls - q to quit`;
+}
+
+function render(state) {
+  return state.screen === "title" ? renderTitle(state) : renderGame(state);
+}
+
+function startGame(state) {
+  state.screen = "playing";
+  state.score = 0;
+  state.x = Math.floor(state.width / 2);
+  state.y = Math.floor(state.height / 2);
+  state.pellets = [];
+  placeObstacles(state);
+  placePellets(state);
 }
 
 function draw(state) {
@@ -124,22 +181,29 @@ function draw(state) {
 
 function start() {
   const width = Math.max(10, Math.min(60, (process.stdout.columns || 60) - 2));
-  const height = Math.max(5, Math.min(20, (process.stdout.rows || 24) - 4));
+  const height = Math.max(9, Math.min(20, (process.stdout.rows || 24) - 4));
   const state = createState(width, height);
-  placeObstacles(state);
-  placePellets(state);
 
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
   const quit = () => {
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
-    process.stdout.write(`\nFinal score: ${state.score}\n`);
+    const tail = state.screen === "playing" ? `\nFinal score: ${state.score}\n` : "\n";
+    process.stdout.write(tail);
     process.exit(0);
   };
 
   process.stdin.on("keypress", (str, key) => {
     if (key.name === "q" || (key.ctrl && key.name === "c")) return quit();
+
+    if (state.screen === "title") {
+      if (key.name === "space" || key.name === "return") {
+        startGame(state);
+        draw(state);
+      }
+      return;
+    }
 
     const moves = {
       up: [0, -1], w: [0, -1],
@@ -163,6 +227,9 @@ module.exports = {
   createState,
   move,
   render,
+  renderTitle,
+  renderGame,
+  startGame,
   placeObstacles,
   placePellets,
   isPellet,
