@@ -1,10 +1,12 @@
 {
   "name": "stack-test",
-  "version": "1.0.0",
-  "description": "A simple hello world JavaScript app",
+  "version": "1.1.0",
+  "description": "A simple hello world JavaScript app with a blob game",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node game.js",
+    "game": "node game.js",
+    "hello": "node index.js"
   },
   "license": "MIT"
 }
