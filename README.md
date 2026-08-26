@@ -3,7 +3,8 @@ Testing Github Stacks
 
 ## Blob game
 
-Move a blob around the screen and collect pellets.
+Move a blob around the screen and collect pellets, steering around the `▓`
+walls scattered across the field.
 
 ```
 npm start      # or: npm run game
