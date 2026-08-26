@@ -11,11 +11,18 @@ time — eat one and another appears somewhere you can reach.
 npm start      # or: npm run game
 ```
 
-Opens on a title screen — press `SPACE` (or `Enter`) to start. You get 30
-moves to collect as many pellets as you can; when they run out, the game-over
-screen shows your score and offers a restart with `r`.
+Opens on a title screen where you type a name for your blob (up to 12
+characters — leave it blank and it's just `Blob`), then press `Enter` to play.
+You get 30 moves to collect as many pellets as you can; when they run out, the
+game-over screen shows how your blob did and offers a restart.
 
-Controls: arrow keys or WASD to move, `r` to play again, `q` to quit.
+Controls:
+
+| Screen    | Keys                                                       |
+| --------- | ---------------------------------------------------------- |
+| Title     | type to name your blob, `Enter` to start, `Esc` to quit     |
+| Playing   | arrow keys or WASD to move, `q` to quit                     |
+| Game over | `r` to play again, `n` to change the name, `q` to quit      |
 
 ## Hello world
 

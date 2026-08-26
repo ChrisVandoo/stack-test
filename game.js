@@ -6,6 +6,8 @@ const OBSTACLE = "▓";
 const OBSTACLE_DENSITY = 0.08;
 const PELLET_COUNT = 10;
 const MOVES_PER_GAME = 30;
+const MAX_NAME = 12;
+const DEFAULT_NAME = "Blob";
 
 const TITLE_ART = [
   "██████  ██       ██████  ██████ ",
@@ -25,6 +27,8 @@ function createState(width, height) {
     pellets: [],
     obstacles: [],
     movesLeft: MOVES_PER_GAME,
+    nameInput: "",
+    name: DEFAULT_NAME,
     screen: "title",
   };
 }
@@ -115,6 +119,28 @@ function move(state, dx, dy) {
   }
 }
 
+function blobName(state) {
+  return state.nameInput.trim() || DEFAULT_NAME;
+}
+
+// Returns true when the keypress changed the name, so the caller knows to redraw.
+function typeName(state, str, key = {}) {
+  if (key.name === "backspace" || key.name === "delete") {
+    if (!state.nameInput) return false;
+    state.nameInput = [...state.nameInput].slice(0, -1).join("");
+    return true;
+  }
+
+  if (key.ctrl || key.meta) return false;
+  if (!str || [...str].length !== 1 || str < " " || str > "~") return false;
+  // No leading spaces, so the name never renders as an empty-looking field.
+  if (str === " " && !state.nameInput) return false;
+  if ([...state.nameInput].length >= MAX_NAME) return false;
+
+  state.nameInput += str;
+  return true;
+}
+
 function center(line, width) {
   const pad = Math.max(0, Math.floor((width - [...line].length) / 2));
   return " ".repeat(pad) + line;
@@ -135,12 +161,20 @@ function renderTitle(state) {
   const narrow = width < 24;
   const art = TITLE_ART[0].length <= width ? TITLE_ART : ["B L O B"];
   const hints = narrow
-    ? ["wasd move", "q quit"]
-    : ["arrows / wasd  move", "q              quit"];
+    ? ["enter play", "esc quit"]
+    : ["enter  start playing", "esc    quit"];
+  // Keep the field inside the frame on narrow terminals, showing the tail of
+  // a long name so the cursor stays visible while typing.
+  const fieldWidth = Math.max(4, Math.min(MAX_NAME + 1, width - 4));
+  const typed = state.nameInput + "_";
+  const field = [...typed].slice(-fieldWidth).join("").padEnd(fieldWidth);
   const body = [
     ...art.map((line) => center(line, width)),
     "",
     center(narrow ? "eat the " + PELLET : "collect the " + PELLET + " pellets", width),
+    "",
+    center(narrow ? "name:" : "name your blob:", width),
+    center("[" + field + "]", width),
     "",
     ...hints.map((line) => center(line, width)),
   ];
@@ -150,7 +184,7 @@ function renderTitle(state) {
   while (lines.length < height) lines.push("");
 
   return frame(lines.slice(0, height), width).join("\n") +
-    "\n" + center("press SPACE to start", width + 2);
+    "\n" + center(`type a name, then ENTER to play as ${blobName(state)}`, width + 2);
 }
 
 function renderGame(state) {
@@ -166,7 +200,7 @@ function renderGame(state) {
     lines.push(row);
   }
   return frame(lines, state.width).join("\n") +
-    `\nScore: ${state.score}   Moves: ${state.movesLeft}   ` +
+    `\n${state.name}  Score: ${state.score}   Moves: ${state.movesLeft}   ` +
     `Pellets: ${state.pellets.length}   Avoid the ${OBSTACLE} walls`;
 }
 
@@ -177,11 +211,20 @@ function renderGameOver(state) {
   const body = [
     center("GAME OVER", width),
     "",
-    center(narrow ? `${state.score} ${PELLET}` : `you collected ${state.score} ${pellets}`, width),
+    center(
+      narrow
+        ? `${state.score} ${PELLET}`
+        : `${state.name} collected ${state.score} ${pellets}`,
+      width
+    ),
     "",
     ...(narrow
-      ? [center("r again", width), center("q quit", width)]
-      : [center("r  play again", width), center("q  quit", width)]),
+      ? [center("r again", width), center("n rename", width), center("q quit", width)]
+      : [
+          center("r  play again", width),
+          center("n  change name", width),
+          center("q  quit", width),
+        ]),
   ];
 
   const blank = Math.max(0, Math.floor((height - body.length) / 2));
@@ -200,6 +243,7 @@ function render(state) {
 
 function startGame(state) {
   state.screen = "playing";
+  state.name = blobName(state);
   state.score = 0;
   state.movesLeft = MOVES_PER_GAME;
   state.x = Math.floor(state.width / 2);
@@ -229,14 +273,28 @@ function start() {
   };
 
   process.stdin.on("keypress", (str, key) => {
-    if (key.name === "q" || (key.ctrl && key.name === "c")) return quit();
+    if (key.ctrl && key.name === "c") return quit();
 
-    if (state.screen === "title" || state.screen === "gameover") {
-      const go = state.screen === "title"
-        ? key.name === "space" || key.name === "return"
-        : key.name === "r";
-      if (go) {
+    if (state.screen === "title") {
+      // Every printable key is name input here, so escape stands in for q.
+      if (key.name === "escape") return quit();
+      if (key.name === "return") {
         startGame(state);
+        draw(state);
+        return;
+      }
+      if (typeName(state, str, key)) draw(state);
+      return;
+    }
+
+    if (key.name === "q") return quit();
+
+    if (state.screen === "gameover") {
+      if (key.name === "r") {
+        startGame(state);
+        draw(state);
+      } else if (key.name === "n") {
+        state.screen = "title";
         draw(state);
       }
       return;
@@ -268,6 +326,8 @@ module.exports = {
   renderGame,
   renderGameOver,
   startGame,
+  typeName,
+  blobName,
   placeObstacles,
   placePellets,
   isPellet,
